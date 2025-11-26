@@ -9,7 +9,6 @@ permissions:
 
 jobs:
   increment-tag:
-    needs: tag-and-release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -56,6 +55,7 @@ jobs:
       - name: Print new tag
         run: echo "New tag is ${{ steps.calc_tag.outputs.new_tag }}"
   tag-and-release:
+    needs: increment-tag
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
