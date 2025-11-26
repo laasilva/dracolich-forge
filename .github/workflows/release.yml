@@ -10,6 +10,8 @@ permissions:
 jobs:
   increment-tag:
     runs-on: ubuntu-latest
+    outputs:
+      new_tag: ${{ steps.calc_tag.outputs.new_tag }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -68,11 +70,16 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Create new tag
+        run: |
+          git tag ${{ needs.increment-tag.outputs.new_tag }}
+          git push origin ${{ needs.increment-tag.outputs.new_tag }}
+
       - name: Create Release for latest
         uses: ncipollo/release-action@v1
         with:
-          tag: ${{env.RELEASE_VERSION}}
-          name: Release ${{env.RELEASE_VERSION}}
-          body: Release for ${{env.RELEASE_VERSION}}
+          tag: ${{ needs.increment-tag.outputs.new_tag }}
+          name: Release ${{ needs.increment-tag.outputs.new_tag }}
+          body: Release for ${{ needs.increment-tag.outputs.new_tag }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
