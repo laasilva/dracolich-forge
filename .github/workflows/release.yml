@@ -7,11 +7,9 @@ on:
 permissions:
   contents: write
 
-env:
-  VERSION: v0.0.1
-
 jobs:
   increment-tag:
+    needs: tag-and-release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -67,13 +65,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Create tag
-        id: tag
-        run: |
-          git tag ${{ steps.calc_tag.outputs.new_tag }}
-          git push origin ${{ steps.calc_tag.outputs.new_tag }}
-
-      - name: Create Release for tag created above
+      - name: Create Release for latest
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ steps.calc_tag.outputs.new_tag }}
