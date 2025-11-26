@@ -74,8 +74,8 @@ jobs:
       - name: Create Release for latest
         uses: ncipollo/release-action@v1
         with:
-          tag: ${{RELEASE_VERSION}}
-          name: Release ${{RELEASE_VERSION}}
-          body: Release for ${{RELEASE_VERSION}}
+          tag: ${{env.RELEASE_VERSION}}
+          name: Release ${{env.RELEASE_VERSION}}
+          body: Release for ${{env.RELEASE_VERSION}}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
