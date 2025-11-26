@@ -1,0 +1,16 @@
+name: Release
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  release-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Create release tag
+        run: git tag v${{ github.event.release.tag_name }} && git push origin v${{ github.event.release.tag_name }}
+      - name: Output version
+        run: echo "VERSION=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
