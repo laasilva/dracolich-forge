@@ -70,7 +70,6 @@ jobs:
       - name: Create tag
         id: tag
         run: |
-          TAG=${{VERSION}}
           git tag ${{ steps.calc_tag.outputs.new_tag }}
           git push origin ${{ steps.calc_tag.outputs.new_tag }}
 
