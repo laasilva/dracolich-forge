@@ -1,19 +1,35 @@
-name: Release
-
+name: Tag and Release
 on:
-  push:
-    branches: [ "main" ]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  release-tag:
+  tag-and-release:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Create release tag
-        run: git tag v${{ github.event.release.tag_name }} && git push origin v${{ github.event.release.tag_name }}
-      - name: Output version
-        run: echo "VERSION=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
+      - uses: actions/checkout@v4
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Create tag
+        id: tag
+        run: |
+          TAG=v1.2.3
+          git tag -a "$TAG" -m "Release $TAG"
+          # If you must push, use a PAT; pushing with GITHUB_TOKEN may be rejected or will not trigger subsequent workflows
+          git push https://${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }} "$TAG"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Create Release for tag created above
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ steps.tag.outputs.tag }}
+          name: Release ${{ steps.tag.outputs.tag }}
+          body: Release for ${{ steps.tag.outputs.tag }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
