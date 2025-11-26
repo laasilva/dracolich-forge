@@ -54,6 +54,9 @@ jobs:
 
       - name: Print new tag
         run: echo "New tag is ${{ steps.calc_tag.outputs.new_tag }}"
+
+      - name: set version global env
+        run: echo "RELEASE_VERSION=${{ steps.calc_tag.outputs.new_tag }}" >> $GITHUB_ENV
   tag-and-release:
     needs: increment-tag
     runs-on: ubuntu-latest
@@ -68,8 +71,8 @@ jobs:
       - name: Create Release for latest
         uses: ncipollo/release-action@v1
         with:
-          tag: ${{ steps.calc_tag.outputs.new_tag }}
-          name: Release ${{ steps.calc_tag.outputs.new_tag }}
-          body: Release for ${{ steps.calc_tag.outputs.new_tag }}
+          tag: ${{RELEASE_VERSION}}
+          name: Release ${{RELEASE_VERSION}}
+          body: Release for ${{RELEASE_VERSION}}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
