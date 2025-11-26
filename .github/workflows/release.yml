@@ -7,9 +7,6 @@ on:
 permissions:
   contents: write
 
-env:
-  RELEASE_VERSION: change-me
-
 jobs:
   increment-tag:
     runs-on: ubuntu-latest
