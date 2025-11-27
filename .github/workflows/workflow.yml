@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       new_tag: ${{ steps.calc_tag.outputs.new_tag }}
+      RELEASE_VERSION: ${{ steps.calc_tag.outputs.new_tag }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -62,6 +63,9 @@ jobs:
   tag-and-release:
     needs: increment-tag
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
 
@@ -100,8 +104,8 @@ jobs:
           server-id: github
           settings-path: ${{ github.workspace }}
       - name: Build with Maven
-        run: mvn -B package --file pom.xml -Drevision=${{ env.RELEASE_VERSION }}
+        run: mvn -B package --file pom.xml -Drevision=${{ needs.increment-tag.outputs.RELEASE_VERSION }}
       - name: Publish to GitHub Packages Apache Maven
-        run: mvn deploy -s $GITHUB_WORKSPACE/settings.xml -Drevision=${{ env.RELEASE_VERSION }}
+        run: mvn deploy -s $GITHUB_WORKSPACE/settings.xml -Drevision=${{ needs.increment-tag.outputs.RELEASE_VERSION }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
