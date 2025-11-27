@@ -7,7 +7,7 @@
     <groupId>dm.dracolich</groupId>
     <artifactId>forge</artifactId>
     <version>${revision}</version>
-    <packaging>jar</packaging>
+    <packaging>pom</packaging>
 
     <name>forge</name>
     <description>Dracolich Forge is a library that contains different tools and helpers for online RPG applications.
