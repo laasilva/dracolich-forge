@@ -99,12 +99,9 @@ jobs:
           distribution: 'temurin'
           server-id: github
           settings-path: ${{ github.workspace }}
-      - name: Get current tag
-        id: get_tag
-        run: echo "tag=$(git describe --tags)" >> $GITHUB_OUTPUT
-      - name: Build with Maven (using git tag as revision)
-        run: mvn -B package --file pom.xml -Drevision=${{ steps.get_tag.outputs.tag }}
+      - name: Build with Maven
+        run: mvn -B package --file pom.xml -Drevision=${{ env.RELEASE_VERSION }}
       - name: Publish to GitHub Packages Apache Maven
-        run: mvn deploy -s $GITHUB_WORKSPACE/settings.xml -Drevision=${{ steps.get_tag.outputs.tag }}
+        run: mvn deploy -s $GITHUB_WORKSPACE/settings.xml -Drevision=${{ env.RELEASE_VERSION }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
