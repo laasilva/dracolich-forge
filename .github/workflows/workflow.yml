@@ -87,13 +87,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   maven-deploy:
-    needs: tag-and-release
+    needs: [increment-tag, tag-and-release]
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.increment-tag.outputs.new_tag }}
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -102,9 +104,19 @@ jobs:
           distribution: 'temurin'
           server-id: github
           settings-path: ${{ github.workspace }}
+      
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG=${{ needs.increment-tag.outputs.new_tag }}
+          VERSION=${TAG#v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+      
       - name: Build with Maven
-        run: mvn -B package --file pom.xml -Drevision=${{ needs.increment-tag.outputs.RELEASE_VERSION }}
+        run: mvn -B package --file pom.xml -Drevision=${{ steps.version.outputs.version }}
+      
       - name: Publish to GitHub Packages Apache Maven
-        run: mvn deploy -s $GITHUB_WORKSPACE/settings.xml -Drevision=${{ needs.increment-tag.outputs.RELEASE_VERSION }}
+        run: mvn deploy -s $GITHUB_WORKSPACE/settings.xml -Drevision=${{ steps.version.outputs.version }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
