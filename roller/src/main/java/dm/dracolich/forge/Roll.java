@@ -262,6 +262,7 @@ public class Roll {
         int valueValue = Prf.drawInt(ctx, "value");
         String valueMsg = buildMessage(clientSeed, nonce, "value");
         String valueHmacHex = Prf.drawHex(ctx, "value");
+        Integer valueRoll = Math.floorMod(valueValue, totalWeight);
 
         Value chosenValue = getChosenValue(values, valueValue, totalWeight);
 
@@ -291,6 +292,7 @@ public class Roll {
                 .itemIndex(itemIndex)
                 .itemsInValue(itemsInValue)
                 .totalWeight(totalWeight)
+                .rollValue(valueRoll)
         .build());
 
         return new FairRoll(rollout, nextServerSeed);

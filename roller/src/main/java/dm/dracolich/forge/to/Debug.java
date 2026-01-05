@@ -14,7 +14,7 @@ public class Debug {
     private String valueMsg; // The message hashed for value selection: clientSeed:nonce:value (for logging purposes)
     private String valueHmacHex; // Full HMAC-SHA256 output (hex) of value_msg using server seed as key
     private Long hmacValueNumericPrefix; // First 4 bytes of value_hmac_hex interpreted as an unsigned integer
-    private String rollValue; // value_value % total_weight → determines which value is selected
+    private Integer rollValue; // value_value % total_weight → determines which value is selected
     private Integer selectedValueWeight; // The weight of the chosen Value object
     private String itemMsg; // The message hashed for item selection: clientSeed:nonce:item (for logging purposes)
     private String itemHmacHex; // Full HMAC-SHA256 output (hex) of item_msg using server seed as key
