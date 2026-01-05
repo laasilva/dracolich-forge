@@ -1,5 +1,7 @@
 package dm.dracolich.forge;
 
+import dm.dracolich.forge.to.Debug;
+import dm.dracolich.forge.to.Rollout;
 import dm.dracolich.forge.to.Value;
 
 import javax.crypto.Mac;
@@ -35,8 +37,11 @@ public class Roll {
     public static byte[] hmacBytes(String key, String message) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
-            SecretKeySpec secretKeySpec = new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+            SecretKeySpec secretKeySpec = new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8),
+                    "HmacSHA256");
+
             mac.init(secretKeySpec);
+
             return mac.doFinal(message.getBytes(StandardCharsets.UTF_8));
         } catch (Exception e) {
             throw new RuntimeException("Failed to compute HMAC-SHA256", e);
@@ -54,6 +59,7 @@ public class Roll {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hash = digest.digest(value.getBytes(StandardCharsets.UTF_8));
+
             return bytesToHex(hash);
         } catch (Exception e) {
             throw new RuntimeException("Failed to compute SHA-256", e);
@@ -71,53 +77,150 @@ public class Roll {
         return sha256Hex(serverSeed);
     }
 
-    // Generic primitives
-    public record RollContext(String serverSeed, String clientSeed, long nonce) { }
-
+    /**
+     * Pseudorandom function (PRF) utilities for generating deterministic random values.
+     * <p>
+     * This class provides methods to derive pseudorandom integers and hexadecimal strings
+     * from a {@link RollContext} using HMAC-SHA256.
+     */
     public static final class Prf {
+        /**
+         * Draws a pseudorandom integer from the given roll context and category.
+         * <p>
+         * Computes an HMAC-SHA256 of the message built from the context's client seed,
+         * nonce, and the provided category, using the server seed as the key.
+         * The first four bytes of the resulting HMAC are interpreted as a big-endian integer.
+         *
+         * @param ctx the roll context containing server seed, client seed, and nonce
+         * @param category the category identifier for this draw operation
+         * @return a pseudorandom integer derived from the HMAC
+         */
         public static int drawInt(RollContext ctx, String category) {
             byte[] bytes = hmacBytes(ctx.serverSeed(), buildMessage(ctx.clientSeed(), ctx.nonce(), category));
+
             return firstFourBytesAsInt(bytes);
         }
+
+        /**
+         * Draws a pseudorandom hexadecimal string from the given roll context and category.
+         * <p>
+         * Computes an HMAC-SHA256 of the message built from the context's client seed,
+         * nonce, and the provided category, using the server seed as the key.
+         *
+         * @param ctx the roll context containing server seed, client seed, and nonce
+         * @param category the category identifier for this draw operation
+         * @return the full HMAC-SHA256 result as a hexadecimal string
+         */
         public static String drawHex(RollContext ctx, String category) {
             return hmacHex(ctx.serverSeed(), buildMessage(ctx.clientSeed(), ctx.nonce(), category));
         }
     }
 
+    /**
+     * Selection utilities for choosing items from collections using a draw value.
+     * <p>
+     * This class provides methods to select items either by index or by weighted probability,
+     * using a precomputed draw value (typically from {@link Prf}).
+     */
     public static final class Select {
+        /**
+         * Selects an item from a weighted list using a draw value.
+         * <p>
+         * The draw value is mapped to the total weight range using modular arithmetic,
+         * then used to select an item based on cumulative weights. Items with higher
+         * weights have proportionally higher chances of being selected.
+         *
+         * @param <T> the type of items in the list
+         * @param items the list of items to select from; must be non-null and non-empty
+         * @param weightFn a function that returns the weight for each item; negative weights are treated as zero
+         * @param draw the draw value used for selection
+         * @return the selected item from the list
+         * @throws IllegalArgumentException if items is null, empty, or all weights sum to zero or less
+         * @throws IllegalStateException if selection fails unexpectedly
+         */
         public static <T> T weightedChoice(List<T> items, ToIntFunction<T> weightFn, int draw) {
             if (items == null || items.isEmpty()) {
                 throw new IllegalArgumentException("items must be non-empty");
             }
+
             int total = 0;
+
             for (T t : items) {
                 int w = Math.max(0, weightFn.applyAsInt(t));
                 total += w;
             }
-            if (total <= 0) throw new IllegalArgumentException("Sum of weights must be positive");
+
+            if (total <= 0)
+                throw new IllegalArgumentException("Sum of weights must be positive");
+
             int roll = Math.floorMod(draw, total);
-            int cum = 0;
+            int c = 0;
+
             for (T t : items) {
-                cum += Math.max(0, weightFn.applyAsInt(t));
-                if (roll < cum) return t;
+                c += Math.max(0, weightFn.applyAsInt(t));
+                if (roll < c) return t;
             }
+
             throw new IllegalStateException("Failed to select from weights");
         }
+
+        /**
+         * Selects an index from a range [0, size) using a draw value.
+         * <p>
+         * The draw value is mapped to the valid index range using modular arithmetic,
+         * ensuring uniform distribution across all indices.
+         *
+         * @param size the upper bound (exclusive) of the index range
+         * @param draw the draw value used for selection
+         * @return an index in the range [0, size), or -1 if size is not positive
+         */
         public static int indexChoice(int size, int draw) {
             if (size <= 0) return -1;
             return Math.floorMod(draw, size);
         }
     }
 
-    // Convenience helpers
+
+    /**
+     * Draws a random index from a range [0, size) using provably fair randomness.
+     * <p>
+     * This method computes an HMAC-SHA256 using the server seed, client seed, nonce,
+     * and category, then maps the result to an index within the specified size.
+     *
+     * @param serverSeed the server seed used for HMAC computation
+     * @param clientSeed the client seed used for HMAC computation
+     * @param nonce the nonce to ensure uniqueness of each draw
+     * @param category the category identifier for the draw operation
+     * @param size the upper bound (exclusive) of the index range; must be positive
+     * @return a random index in the range [0, size), or -1 if size is not positive
+     */
     public static int drawIndex(String serverSeed, String clientSeed, long nonce, String category, int size) {
         return Select.indexChoice(size, Prf.drawInt(new RollContext(serverSeed, clientSeed, nonce), category));
         
     }
 
+    /**
+     * Selects an item from a weighted list using provably fair randomness.
+     * <p>
+     * This method computes an HMAC-SHA256 using the server seed, client seed, nonce,
+     * and category, then uses the result to perform a weighted random selection
+     * from the provided list of items.
+     *
+     * @param <T> the type of items in the list
+     * @param serverSeed the server seed used for HMAC computation
+     * @param clientSeed the client seed used for HMAC computation
+     * @param nonce the nonce to ensure uniqueness of each draw
+     * @param category the category identifier for the draw operation
+     * @param items the list of items to select from; must be non-empty
+     * @param weightFn a function that returns the weight for each item; weights must be non-negative
+     * @return the selected item from the list
+     * @throws IllegalArgumentException if items is null, empty, or all weights sum to zero or less
+     * @throws IllegalStateException if selection fails unexpectedly
+     */
     public static <T> T drawWeighted(String serverSeed, String clientSeed, long nonce, String category,
                                      List<T> items, ToIntFunction<T> weightFn) {
-        return Select.weightedChoice(items, weightFn, Prf.drawInt(new RollContext(serverSeed, clientSeed, nonce), category));
+        return Select.weightedChoice(items, weightFn,
+                Prf.drawInt(new RollContext(serverSeed, clientSeed, nonce), category));
     }
 
     /**
@@ -142,13 +245,8 @@ public class Roll {
      * @throws IllegalArgumentException if the given list of values is null or empty
      * @throws IllegalStateException if the selected value has no items
      */
-    public static FairRoll fairRoll(
-            String serverSeed,
-            String clientSeed,
-            long nonce,
-            List<Value> values,
-            boolean advanceServerSeed
-    ) {
+    public static FairRoll fairRoll(String serverSeed, String clientSeed, long nonce,
+            List<Value> values, boolean advanceServerSeed) {
         if (values == null || values.isEmpty()) {
             throw new IllegalArgumentException("values must be a non-empty list");
         }
@@ -164,6 +262,41 @@ public class Roll {
         int valueValue = Prf.drawInt(ctx, "value");
         String valueMsg = buildMessage(clientSeed, nonce, "value");
         String valueHmacHex = Prf.drawHex(ctx, "value");
+
+        Value chosenValue = getChosenValue(values, valueValue, totalWeight);
+
+        int itemValue = Prf.drawInt(ctx, "item");
+        String itemMsg = buildMessage(clientSeed, nonce, "item");
+        String itemHmacHex = Prf.drawHex(ctx, "item");
+
+        Integer itemsInValue = chosenValue.getCount();
+        Integer itemIndex = null;
+        if (itemsInValue != null && itemsInValue > 0) {
+            itemIndex = Math.floorMod(itemValue, itemsInValue);
+        }
+
+        String nextServerSeed = advanceServerSeed ? seedChainAdvance(serverSeed) : serverSeed;
+
+        Rollout rollout = new Rollout(chosenValue.getId(), itemIndex, Debug.builder()
+                .serverSeedUsed(serverSeed)
+                .clientSeed(clientSeed)
+                .nonce(nonce)
+                .valueMsg(valueMsg)
+                .valueHmacHex(valueHmacHex)
+                .hmacValueNumericPrefix(Integer.toUnsignedLong(valueValue))
+                .selectedValueWeight(chosenValue.getWeight())
+                .itemMsg(itemMsg)
+                .itemHmacHex(itemHmacHex)
+                .hmacItemNumericPrefix(Integer.toUnsignedLong(itemValue))
+                .itemIndex(itemIndex)
+                .itemsInValue(itemsInValue)
+                .totalWeight(totalWeight)
+        .build());
+
+        return new FairRoll(rollout, nextServerSeed);
+    }
+
+    private static Value getChosenValue(List<Value> values, int valueValue, int totalWeight) {
         int valueRoll = Math.floorMod(valueValue, totalWeight);
 
         int cumulative = 0;
@@ -179,42 +312,7 @@ public class Roll {
         if (chosenValue == null) {
             throw new IllegalStateException("Failed to select a value from weights");
         }
-
-        int itemValue = Prf.drawInt(ctx, "item");
-        String itemMsg = buildMessage(clientSeed, nonce, "item");
-        String itemHmacHex = Prf.drawHex(ctx, "item");
-
-        Integer itemsInValue = chosenValue.getCount();
-        Integer itemIndex = null;
-        if (itemsInValue != null && itemsInValue > 0) {
-            itemIndex = Math.floorMod(itemValue, itemsInValue);
-        }
-
-        String nextServerSeed = advanceServerSeed ? seedChainAdvance(serverSeed) : serverSeed;
-
-        Map<String, Object> debug = new LinkedHashMap<>();
-
-        debug.put("server_seed_used", serverSeed);
-        debug.put("client_seed", clientSeed);
-        debug.put("nonce", nonce);
-        debug.put("value_msg", valueMsg);
-        debug.put("value_hmac_hex", valueHmacHex);
-        debug.put("value_value", Integer.toUnsignedLong(valueValue));
-        debug.put("value_roll", valueRoll);
-        debug.put("selected_value_weight", chosenValue.getWeight());
-        debug.put("item_msg", itemMsg);
-        debug.put("item_hmac_hex", itemHmacHex);
-        debug.put("item_value", Integer.toUnsignedLong(itemValue));
-        debug.put("item_index", itemIndex);
-        debug.put("items_in_value", itemsInValue == null ? 0 : itemsInValue);
-        debug.put("total_weight", totalWeight);
-
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("value", chosenValue.getId());
-        result.put("item", itemIndex);
-        result.put("debug", debug);
-
-        return new FairRoll(result, nextServerSeed);
+        return chosenValue;
     }
 
     /**
@@ -268,5 +366,26 @@ public class Roll {
         return sb.toString();
     }
 
-    public record FairRoll(Map<String, Object> result, String nextServerSeed) { }
+    /**
+     * Immutable context for a provably fair roll operation.
+     * <p>
+     * Contains the three inputs required to generate deterministic pseudorandom values:
+     * the server seed (secret), the client seed (public), and a nonce (counter).
+     *
+     * @param serverSeed the server's secret seed used as the HMAC key
+     * @param clientSeed the client's public seed included in the HMAC message
+     * @param nonce a counter value to ensure unique outputs for each roll
+     */
+    public record RollContext(String serverSeed, String clientSeed, long nonce) { }
+
+    /**
+     * Result of a provably fair roll operation.
+     * <p>
+     * Contains the roll result with debug information and the next server seed
+     * (if seed advancement was requested).
+     *
+     * @param result a map containing the selected value ID, item index, and debug information
+     * @param nextServerSeed the server seed to use for the next roll (may be the same or advanced)
+     */
+    public record FairRoll(Rollout result, String nextServerSeed) { }
 }

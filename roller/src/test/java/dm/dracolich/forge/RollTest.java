@@ -43,7 +43,7 @@ class RollTest {
     @Test
     void validateHmac_roundTripTrue_andFalseOnMismatch() {
         String key = "secret";
-        String msg = "client:1:value";
+        String msg = "client:1:id";
         String hex = Roll.hmacHex(key, msg);
         assertTrue(Roll.validateHmac(key, msg, hex));
         assertFalse(Roll.validateHmac(key, msg, hex + "00"));
@@ -63,7 +63,7 @@ class RollTest {
         Roll.FairRoll fair = Roll.fairRoll(serverSeed, clientSeed, nonce, List.of(d20), true);
         Map<String, Object> result = fair.result();
 
-        assertEquals("D20", result.get("value"));
+        assertEquals("D20", result.get("id"));
         assertEquals(expectedIndex, result.get("item"));
         assertTrue(expectedIndex >= 0 && expectedIndex < 20);
         assertEquals(sha256Hex(serverSeed), fair.nextServerSeed());
