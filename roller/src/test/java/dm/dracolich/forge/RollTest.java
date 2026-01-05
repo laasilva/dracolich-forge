@@ -1,5 +1,6 @@
 package dm.dracolich.forge;
 
+import dm.dracolich.forge.to.Rollout;
 import dm.dracolich.forge.to.Value;
 import org.junit.jupiter.api.Test;
 
@@ -9,7 +10,6 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -61,10 +61,10 @@ class RollTest {
         int expectedIndex = Math.floorMod(itemValue, 20);
 
         Roll.FairRoll fair = Roll.fairRoll(serverSeed, clientSeed, nonce, List.of(d20), true);
-        Map<String, Object> result = fair.result();
+        Rollout result = fair.result();
 
-        assertEquals("D20", result.get("id"));
-        assertEquals(expectedIndex, result.get("item"));
+        assertEquals("D20", result.getId());
+        assertEquals(expectedIndex, result.getValue());
         assertTrue(expectedIndex >= 0 && expectedIndex < 20);
         assertEquals(sha256Hex(serverSeed), fair.nextServerSeed());
     }
@@ -86,7 +86,7 @@ class RollTest {
         String expectedvalue = valueRoll < a.getWeight() ? "A" : "B";
 
         Roll.FairRoll fair = Roll.fairRoll(serverSeed, clientSeed, nonce, values, false);
-        assertEquals(expectedvalue, fair.result().get("value"));
+        assertEquals(expectedvalue, fair.result().getId());
         assertEquals(serverSeed, fair.nextServerSeed());
     }
 
@@ -96,10 +96,10 @@ class RollTest {
         Value rN = Value.builder().id("EmptyNull").weight(1).count(null).build();
 
         Roll.FairRoll fair0 = Roll.fairRoll("k", "c", 1, List.of(r0), true);
-        assertNull(fair0.result().get("item"));
+        assertNull(fair0.result().getValue());
 
         Roll.FairRoll fairN = Roll.fairRoll("k", "c", 2, List.of(rN), true);
-        assertNull(fairN.result().get("item"));
+        assertNull(fairN.result().getValue());
     }
 
     @Test
