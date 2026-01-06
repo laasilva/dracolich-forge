@@ -22,18 +22,16 @@ public enum DiceEnum {
         this.dice = dice;
     }
 
-    public List<Value> getDiceValues(DiceEnum dice) {
-        return dice.dice;
+    public List<Value> getDiceValues() {
+        return this.dice;
     }
 
-    public DiceEnum getDice(String dice) {
-        if (dice.equals(DiceEnum.D4.id)) return DiceEnum.D4;
-        if (dice.equals(DiceEnum.D8.id)) return DiceEnum.D8;
-        if (dice.equals(DiceEnum.D10.id)) return DiceEnum.D10;
-        if (dice.equals(DiceEnum.D12.id)) return DiceEnum.D12;
-        if (dice.equals(DiceEnum.D20.id)) return DiceEnum.D20;
-        if (dice.equals(DiceEnum.D100.id)) return DiceEnum.D100;
-
+    public static DiceEnum of(String dice) {
+        for (DiceEnum d : values()) {
+            if (d.id.equals(dice)) {
+                return d;
+            }
+        }
         log.error("Invalid dice [id: {}]", dice);
         throw new IllegalArgumentException(String.format("Invalid dice [id: %s]", dice));
     }

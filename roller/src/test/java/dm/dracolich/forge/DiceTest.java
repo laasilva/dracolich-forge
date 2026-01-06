@@ -104,8 +104,13 @@ class DiceTest {
     }
 
     @Test
+    void diceEnum_of_returns_correct_enum() {
+        assertEquals(DiceEnum.D20, DiceEnum.of("d20"));
+        assertEquals(DiceEnum.D4, DiceEnum.of("d4"));
+    }
+
+    @Test
     void diceEnum_of_throws_and_logs_on_invalid_dice() {
-        DiceEnum d20 = DiceEnum.D20;
-        assertThrows(IllegalArgumentException.class, () -> d20.of("invalid"));
+        assertThrows(IllegalArgumentException.class, () -> DiceEnum.of("invalid"));
     }
 }

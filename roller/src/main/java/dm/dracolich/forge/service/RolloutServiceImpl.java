@@ -12,7 +12,7 @@ public class RolloutServiceImpl implements RolloutService {
     @Override
     public Rollout rollDice(DiceEnum dice, String serverSeed, String clientSeed, Long nonce) {
         Roll.FairRoll roll = Roll.fairRoll(serverSeed, clientSeed,
-                nonce, dice.getDiceValues(dice), true);
+                nonce, dice.getDiceValues(), true);
 
         return roll.result();
     }
