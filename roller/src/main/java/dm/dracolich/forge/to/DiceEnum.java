@@ -26,7 +26,7 @@ public enum DiceEnum {
         return dice.dice;
     }
 
-    public DiceEnum of(String dice) {
+    public DiceEnum getDice(String dice) {
         if (dice.equals(DiceEnum.D4.id)) return DiceEnum.D4;
         if (dice.equals(DiceEnum.D8.id)) return DiceEnum.D8;
         if (dice.equals(DiceEnum.D10.id)) return DiceEnum.D10;
