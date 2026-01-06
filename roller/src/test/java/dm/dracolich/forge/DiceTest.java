@@ -1,5 +1,6 @@
 package dm.dracolich.forge;
 
+import dm.dracolich.forge.to.DiceEnum;
 import dm.dracolich.forge.to.Value;
 import org.junit.jupiter.api.Test;
 
@@ -100,5 +101,11 @@ class DiceTest {
             assertEquals(1, v.getWeight());
             assertEquals(10, v.getCount());
         }
+    }
+
+    @Test
+    void diceEnum_of_throws_and_logs_on_invalid_dice() {
+        DiceEnum d20 = DiceEnum.D20;
+        assertThrows(IllegalArgumentException.class, () -> d20.of("invalid"));
     }
 }
