@@ -28,7 +28,7 @@ public enum DiceEnum {
 
     public static DiceEnum of(String dice) {
         for (DiceEnum d : values()) {
-            if (d.id.equals(dice)) {
+            if (d.id.equalsIgnoreCase(dice)) {
                 return d;
             }
         }
