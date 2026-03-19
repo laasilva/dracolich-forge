@@ -4,17 +4,17 @@ import lombok.Data;
 
 @Data
 public class ApiError {
-    private ErrorCodes error;
+    private ErrorCode error;
     private ErrorSeverity severity;
     private String field;
 
-    public ApiError(ErrorCodes error, ErrorSeverity severity, String field) {
+    public ApiError(ErrorCode error, ErrorSeverity severity, String field) {
         this.error = error;
         this.severity = severity;
         this.field = field;
     }
 
-    public ApiError(ErrorCodes error) {
+    public ApiError(ErrorCode error) {
         this.error = error;
     }
 }

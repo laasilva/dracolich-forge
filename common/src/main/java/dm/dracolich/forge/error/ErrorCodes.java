@@ -3,7 +3,7 @@ package dm.dracolich.forge.error;
 import lombok.Getter;
 
 @Getter
-public enum ErrorCodes {
+public enum ErrorCodes implements ErrorCode {
     DMD001("DMD001", "Unknown issue happened."),
     DMD002("DMD002", "Error while creating [%s]={%s}"),
     DMD003("DMD003", "[%s] cannot be null or empty."),

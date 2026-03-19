@@ -2,7 +2,7 @@ package dm.dracolich.forge.response;
 
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import dm.dracolich.forge.error.ApiError;
-import dm.dracolich.forge.error.ErrorCodes;
+import dm.dracolich.forge.error.ErrorCode;
 import lombok.Data;
 import lombok.Getter;
 import org.springframework.http.HttpStatus;
@@ -111,7 +111,7 @@ public class DmdResponse<T> {
         return this.payload;
     }
 
-    public void addErrorFromErrorCode(ErrorCodes errorCode) {
+    public void addErrorFromErrorCode(ErrorCode errorCode) {
         this.errors.add(new ApiError(errorCode));
     }
 
