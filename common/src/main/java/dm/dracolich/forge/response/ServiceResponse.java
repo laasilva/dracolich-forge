@@ -1,7 +1,7 @@
 package dm.dracolich.forge.response;
 
 import dm.dracolich.forge.error.ApiError;
-import dm.dracolich.forge.error.ErrorCodes;
+import dm.dracolich.forge.error.ErrorCode;
 import lombok.Getter;
 
 import java.util.List;
@@ -56,7 +56,7 @@ public class ServiceResponse<T> {
         return this.payload;
     }
 
-    public void addErrorFromErrorCode(ErrorCodes errorCode) {
+    public void addErrorFromErrorCode(ErrorCode errorCode) {
         this.errors.add(new ApiError(errorCode));
     }
 
