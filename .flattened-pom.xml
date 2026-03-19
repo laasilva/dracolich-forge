@@ -10,6 +10,7 @@
   <description>Dracolich Forge is a library that contains different tools and helpers for online RPG applications.</description>
   <modules>
     <module>roller</module>
+    <module>common</module>
   </modules>
   <distributionManagement>
     <repository>
@@ -34,6 +35,12 @@
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
       <version>2.0.17</version>
+    </dependency>
+    <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-classic</artifactId>
+      <version>1.5.22</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
   <build>
