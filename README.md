@@ -4,6 +4,12 @@
 
 ## Features
 
+### Common
+- **Response Wrapping**: Automatic `DmdResponse` envelope for all controller returns
+- **Error Framework**: Typed error codes, `ApiError`, and `ResponseException` with global `ControllerAdvice`
+- **JWT Security**: Shared `JwtAuthenticationWebFilter` for cross-service Bearer token verification (ES384/RS256/any JJWT-supported algorithm)
+
+### Roller
 - **Provably-Fair RNG**: HMAC-SHA256-based deterministic random selection that can be independently verified
 - **Flexible Weighted Selection**: Generic weighted choice algorithm for any type of item
 - **Dice Rolling**: Simple API for rolling dice (D20, D6, etc.) with cryptographic guarantees
@@ -11,19 +17,14 @@
 - **Debug Information**: Complete audit trail with HMAC values, messages, and intermediate computations
 - **Generic Primitives**: Reusable building blocks (`Prf`, `Select`, `RollContext`) for custom use cases
 
-## Installation
+## Modules
 
-### Maven
+| Module | Description |
+|---|---|
+| `common` | Shared infrastructure — response wrappers, error handling, JWT security filter |
+| `roller` | Provably-fair RNG — HMAC-SHA256 dice rolls, weighted selection |
 
-```xml
-<dependency>
-    <groupId>dm.dracolich.forge</groupId>
-    <artifactId>roller</artifactId>
-    <version>0.0.1</version>
-</dependency>
-```
-
-### Requirements
+## Requirements
 
 - Java 25+
 - Lombok (annotation processing enabled)
@@ -250,19 +251,174 @@ cd dracolich-forge
 mvn clean install
 ```
 
+## Common Module
+
+The `common` module provides shared infrastructure for all Dracolich services.
+
+### Response Handling
+
+Standardized response wrapper used across all APIs:
+
+```java
+import dm.dracolich.forge.response.DmdResponse;
+
+// Success
+new DmdResponse<>(payload);
+new DmdResponse<>(payload, "Custom message");
+
+// Error
+DmdResponse.of(errors, HttpStatus.BAD_REQUEST, "Validation failed");
+```
+
+**`DmdResponseWrapper`** automatically wraps all controller returns from `dm.dracolich.*` packages in `DmdResponse`. Controllers return raw `Mono<T>` / `Flux<T>` — the wrapper handles the envelope.
+
+### Error Handling
+
+```java
+import dm.dracolich.forge.error.ApiError;
+import dm.dracolich.forge.error.ErrorCode;
+import dm.dracolich.forge.exception.ResponseException;
+
+// Throw from service layer — ControllerAdvice handles the rest
+throw new ResponseException(
+    "Something went wrong",
+    List.of(new ApiError(myErrorCode)),
+    HttpStatus.BAD_REQUEST
+);
+```
+
+- **`ErrorCode`** — interface with `getCode()` and `getMessage()`. Each service implements its own enum.
+- **`ApiError`** — wraps an `ErrorCode` with optional `severity` and `field`.
+- **`ControllerAdvice`** — catches `ResponseException` and returns `ResponseEntity<DmdResponse<?>>`.
+
+### JWT Security
+
+Shared JWT authentication filter for cross-service token verification. Any Dracolich service can verify JWTs issued by `dracolich-user-api` using only the public key.
+
+#### `JwtTokenValidator`
+
+Interface that each service implements to provide token validation:
+
+```java
+import dm.dracolich.forge.security.JwtTokenValidator;
+import io.jsonwebtoken.Claims;
+import reactor.core.publisher.Mono;
+
+public interface JwtTokenValidator {
+    Mono<Claims> validate(String token);
+}
+```
+
+#### `JwtAuthenticationWebFilter`
+
+Reactive `WebFilter` that extracts JWT from the `Authorization: Bearer <token>` header, validates it via `JwtTokenValidator`, and sets the Spring Security context:
+
+```java
+import dm.dracolich.forge.security.JwtAuthenticationWebFilter;
+
+// In your service's SecurityConfig:
+@Bean
+public JwtAuthenticationWebFilter jwtFilter(JwtTokenValidator validator) {
+    return new JwtAuthenticationWebFilter(validator);
+}
+```
+
+The filter:
+- Extracts the `Bearer` token from the `Authorization` header
+- Validates via the injected `JwtTokenValidator`
+- Sets `ReactiveSecurityContextHolder` with the user's subject and `ROLE_<accessLevel>` authority
+- If no token or invalid token: passes through (lets Spring Security handle 401)
+
+#### Adding JWT verification to a service
+
+1. Add `forge:common` and `jjwt` dependencies
+2. Load the **public key** (PEM) via config
+3. Implement `JwtTokenValidator`:
+
+```java
+@Service
+public class JwtValidatorImpl implements JwtTokenValidator {
+    private final ECPublicKey publicKey; // loaded from PEM
+
+    @Override
+    public Mono<Claims> validate(String token) {
+        return Mono.fromCallable(() ->
+            Jwts.parser()
+                .verifyWith(publicKey)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload()
+        );
+    }
+}
+```
+
+4. Register the filter in your `SecurityConfig`:
+
+```java
+@Bean
+public SecurityWebFilterChain securityFilterChain(ServerHttpSecurity http,
+                                                   JwtAuthenticationWebFilter jwtFilter) {
+    return http
+        .csrf(ServerHttpSecurity.CsrfSpec::disable)
+        .addFilterAt(jwtFilter, SecurityWebFiltersOrder.AUTHENTICATION)
+        .authorizeExchange(ex -> ex.anyExchange().authenticated())
+        .build();
+}
+
+@Bean
+public JwtAuthenticationWebFilter jwtFilter(JwtTokenValidator validator) {
+    return new JwtAuthenticationWebFilter(validator);
+}
+```
+
+### Installation
+
+```xml
+<!-- Response handling, error framework -->
+<dependency>
+    <groupId>dm.dracolich.forge</groupId>
+    <artifactId>common</artifactId>
+    <version>5.0.0</version>
+</dependency>
+
+<!-- Provably-fair RNG (optional) -->
+<dependency>
+    <groupId>dm.dracolich.forge</groupId>
+    <artifactId>roller</artifactId>
+    <version>5.0.0</version>
+</dependency>
+```
+
 ## Project Structure
 
 ```
 forge/
 ├── pom.xml                 # Parent POM
-└── roller/                 # Roller module
-    ├── pom.xml
-    ├── src/
-    │   ├── main/java/dm/dracolich/forge/
-    │   │   ├── Roll.java           # Main API
-    │   │   └── to/
-    │   │       └── Value.java      # Value DTO
-    │   └── test/java/dm/dracolich/forge/
-    │       └── RollTest.java       # Unit tests
+├── common/                 # Shared infrastructure
+│   └── src/main/java/dm/dracolich/forge/
+│       ├── controller/
+│       │   └── ControllerAdvice.java
+│       ├── error/
+│       │   ├── ApiError.java
+│       │   ├── ErrorCode.java
+│       │   ├── ErrorCodes.java
+│       │   ├── ErrorSeverity.java
+│       │   └── DmdError.java
+│       ├── exception/
+│       │   ├── ResponseException.java
+│       │   └── ValidationException.java
+│       ├── response/
+│       │   ├── DmdResponse.java
+│       │   ├── DmdResponseWrapper.java
+│       │   └── ServiceResponse.java
+│       └── security/
+│           ├── JwtTokenValidator.java
+│           └── JwtAuthenticationWebFilter.java
+└── roller/                 # Provably-fair RNG
+    └── src/main/java/dm/dracolich/forge/
+        ├── Roll.java
+        └── to/
+            └── Value.java
 ```
 

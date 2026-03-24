@@ -5,10 +5,10 @@
   <parent>
     <groupId>dm.dracolich.forge</groupId>
     <artifactId>forge-parent</artifactId>
-    <version>4.2.0</version>
+    <version>5.0.0</version>
   </parent>
   <artifactId>roller</artifactId>
-  <version>4.2.0</version>
+  <version>5.0.0</version>
   <properties>
     <junit.jupiter.version>5.11.3</junit.jupiter.version>
     <maven.surefire.plugin.version>3.5.0</maven.surefire.plugin.version>
