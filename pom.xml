@@ -29,6 +29,7 @@
         <maven.compiler.source>25</maven.compiler.source>
         <maven.compiler.target>25</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <springframework.version>7.0.6</springframework.version>
 
         <revision>0.0.1-LOCAL</revision>
     </properties>

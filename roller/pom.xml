@@ -20,8 +20,7 @@
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-context</artifactId>
-            <version>6.2.7</version>
-            <scope>provided</scope>
+            <version>${springframework.version}</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>

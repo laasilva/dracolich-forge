@@ -5,10 +5,10 @@
   <parent>
     <groupId>dm.dracolich.forge</groupId>
     <artifactId>forge-parent</artifactId>
-    <version>0.0.1-LOCAL</version>
+    <version>4.2.0</version>
   </parent>
   <artifactId>roller</artifactId>
-  <version>0.0.1-LOCAL</version>
+  <version>4.2.0</version>
   <properties>
     <junit.jupiter.version>5.11.3</junit.jupiter.version>
     <maven.surefire.plugin.version>3.5.0</maven.surefire.plugin.version>
@@ -17,8 +17,7 @@
     <dependency>
       <groupId>org.springframework</groupId>
       <artifactId>spring-context</artifactId>
-      <version>6.2.7</version>
-      <scope>provided</scope>
+      <version>${springframework.version}</version>
     </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
