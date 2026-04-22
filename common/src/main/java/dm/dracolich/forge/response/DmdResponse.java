@@ -5,22 +5,25 @@ import dm.dracolich.forge.error.ApiError;
 import dm.dracolich.forge.error.ErrorCode;
 import lombok.Data;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
+@NoArgsConstructor
 @JsonPropertyOrder({ "success", "httpStatus", "message", "payload", "errors" })
 public class DmdResponse<T> {
     @Getter
     private Boolean success;
     @Getter
-    private final HttpStatus httpStatus;
+    private HttpStatus httpStatus;
     @Getter
     private T payload;
     @Getter
-    private final String message;
+    private String message;
     @Getter
     private List<ApiError> errors;
 
@@ -86,6 +89,9 @@ public class DmdResponse<T> {
     }
 
     public void addError(ApiError error) {
+        if (this.errors == null) {
+            this.errors = new ArrayList<>();
+        }
         this.errors.add(error);
     }
 
@@ -112,6 +118,9 @@ public class DmdResponse<T> {
     }
 
     public void addErrorFromErrorCode(ErrorCode errorCode) {
+        if (this.errors == null) {
+            this.errors = new ArrayList<>();
+        }
         this.errors.add(new ApiError(errorCode));
     }
 

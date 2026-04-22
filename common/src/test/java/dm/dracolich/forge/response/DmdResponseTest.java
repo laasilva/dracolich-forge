@@ -156,6 +156,29 @@ class DmdResponseTest {
     }
 
     @Test
+    void addError_lazyInitializesWhenNull() {
+        DmdResponse<String> response = new DmdResponse<>("data");
+        assertNull(response.getErrors());
+
+        response.addError(new ApiError(ErrorCodes.DMD001));
+
+        assertNotNull(response.getErrors());
+        assertEquals(1, response.getErrors().size());
+    }
+
+    @Test
+    void addErrorFromErrorCode_lazyInitializesWhenNull() {
+        DmdResponse<String> response = new DmdResponse<>("data", "message");
+        assertNull(response.getErrors());
+
+        response.addErrorFromErrorCode(ErrorCodes.DMD002);
+
+        assertNotNull(response.getErrors());
+        assertEquals(1, response.getErrors().size());
+        assertEquals("DMD002", response.getErrors().getFirst().getError().getCode());
+    }
+
+    @Test
     void toResponseEntity() {
         DmdResponse<String> response = new DmdResponse<>("data");
 
