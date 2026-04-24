@@ -7,7 +7,7 @@
 ### Common
 - **Response Wrapping**: Automatic `DmdResponse` envelope for all controller returns
 - **Error Framework**: Typed error codes, `ApiError`, and `ResponseException` with global `ControllerAdvice`
-- **JWT Security**: Shared `JwtAuthenticationWebFilter` for cross-service Bearer token verification (ES384/RS256/any JJWT-supported algorithm)
+- **Security**: Unified `Principal` abstraction across `JwtAuthenticationWebFilter` (authenticated) and `AnonCookieFilter` (anonymous users with signed cookies), plus reactive helpers for reading the current identity and enforcing ownership
 
 ### Roller
 - **Provably-Fair RNG**: HMAC-SHA256-based deterministic random selection that can be independently verified
@@ -291,54 +291,69 @@ throw new ResponseException(
 - **`ApiError`** — wraps an `ErrorCode` with optional `severity` and `field`.
 - **`ControllerAdvice`** — catches `ResponseException` and returns `ResponseEntity<DmdResponse<?>>`.
 
-### JWT Security
+### Security
 
-Shared JWT authentication filter for cross-service token verification. Any Dracolich service can verify JWTs issued by `dracolich-user-api` using only the public key.
+Unified identity and authorization primitives for all Dracolich services. Supports authenticated users (JWT) and anonymous users (signed cookie), behind a single `Principal` abstraction so services don't need to care which mechanism produced the identity.
 
-#### `JwtTokenValidator`
+#### Identity types
 
-Interface that each service implements to provide token validation:
+| Class | Role |
+|---|---|
+| `Principal` | Immutable record `(type, id)` representing the current caller. Factories: `Principal.user(userId)`, `Principal.anon(anonId)`. Convenience: `isUser()`, `isAnon()`. |
+| `PrincipalType` | Enum: `USER` \| `ANON`. |
+
+Services never construct a `Principal` — filters do. Services only read the current one.
+
+#### Reading the current identity
 
 ```java
-import dm.dracolich.forge.security.JwtTokenValidator;
-import io.jsonwebtoken.Claims;
-import reactor.core.publisher.Mono;
+import dm.dracolich.forge.security.ReactiveSecurityContextUtil;
 
+ReactiveSecurityContextUtil.getPrincipal()
+    .switchIfEmpty(Mono.error(unauthorized()))
+    .flatMap(principal -> { /* ... */ });
+```
+
+Returns `Mono<Principal>`. Empty means no identity present in the security context.
+
+#### Ownership checks
+
+```java
+import dm.dracolich.forge.security.OwnershipResolver;
+
+boolean owns = OwnershipResolver.ownedBy(principal, resource.getUserId(), resource.getAnonId());
+```
+
+Matches strictly by `PrincipalType`: a `USER` principal is only checked against `ownerUserId`, an `ANON` principal only against `ownerAnonId`. Cross-type ID collisions cannot grant access.
+
+#### JWT authentication
+
+`JwtTokenValidator` — interface each service implements with its own validation:
+
+```java
 public interface JwtTokenValidator {
     Mono<Claims> validate(String token);
 }
 ```
 
-#### `JwtAuthenticationWebFilter`
-
-Reactive `WebFilter` that extracts JWT from the `Authorization: Bearer <token>` header, validates it via `JwtTokenValidator`, and sets the Spring Security context:
+`JwtAuthenticationWebFilter` — reactive `WebFilter` that reads `Authorization: Bearer <token>`, validates via `JwtTokenValidator`, and populates `Principal.user(subject)` with `ROLE_<accessLevel>` authority.
 
 ```java
-import dm.dracolich.forge.security.JwtAuthenticationWebFilter;
-
-// In your service's SecurityConfig:
 @Bean
 public JwtAuthenticationWebFilter jwtFilter(JwtTokenValidator validator) {
     return new JwtAuthenticationWebFilter(validator);
 }
 ```
 
-The filter:
-- Extracts the `Bearer` token from the `Authorization` header
-- Validates via the injected `JwtTokenValidator`
-- Sets `ReactiveSecurityContextHolder` with the user's subject and `ROLE_<accessLevel>` authority
-- If no token or invalid token: passes through (lets Spring Security handle 401)
+- On failure (missing/invalid/expired token): passes through silently, logs WARN. Downstream filters or `authorizeExchange(...authenticated())` enforce the 401.
+- Filter order: `10`.
 
-#### Adding JWT verification to a service
-
-1. Add `forge:common` and `jjwt` dependencies
-2. Load the **public key** (PEM) via config
-3. Implement `JwtTokenValidator`:
+Example `JwtTokenValidator` with EC public key:
 
 ```java
 @Service
 public class JwtValidatorImpl implements JwtTokenValidator {
-    private final ECPublicKey publicKey; // loaded from PEM
+    private final ECPublicKey publicKey;  // loaded from PEM
 
     @Override
     public Mono<Claims> validate(String token) {
@@ -353,23 +368,69 @@ public class JwtValidatorImpl implements JwtTokenValidator {
 }
 ```
 
-4. Register the filter in your `SecurityConfig`:
+#### Anonymous identity (signed cookies)
+
+For flows where anonymous users need persistent identity across requests — e.g. editing a draft deck before signing up. Two components:
+
+**`AnonCookieSigner`** — HMAC-SHA256 signer/verifier for `anon_id.expiresAtMillis.hmac` cookies. Constant-time comparison on verify.
+
+```java
+@Bean
+public AnonCookieSigner anonCookieSigner(@Value("${dracolich.cookie.secret}") String secret) {
+    return new AnonCookieSigner(secret);  // secret must be >= 32 chars
+}
+```
+
+**`AnonCookieFilter`** — web filter that reads the cookie, sets `Principal.anon(id)` when valid, or mints a new id when absent/invalid.
+
+```java
+@Bean
+public AnonCookieFilter anonCookieFilter(AnonCookieSigner signer,
+                                          @Value("${dracolich.cookie.lifetime:PT24H}") Duration lifetime,
+                                          @Value("${dracolich.cookie.secure:false}") boolean secure) {
+    return new AnonCookieFilter(signer, lifetime, secure);
+}
+```
+
+Behavior:
+- If a `Principal` is already in the context (e.g. JWT filter ran first): **skips**. JWT wins.
+- Valid signed cookie present: reads `anon_id`, sets `Principal.anon(anonId)`.
+- No cookie or tampered/expired: mints a new `anon_id`, signs + adds to response, sets `Principal.anon(newId)`.
+
+Response cookie attributes: `HttpOnly`, `SameSite=Lax`, `Secure` configurable, `Path=/`. Filter order: `20` (after JWT).
+
+**Reading the anon cookie directly** (for flows like `/claim` that need to verify the cookie matches a resource — not just that the caller is authed):
+
+```java
+Optional<String> anonId = AnonCookieFilter.readAnonIdCookie(exchange, signer);
+```
+
+#### Typical wiring (services using both)
 
 ```java
 @Bean
 public SecurityWebFilterChain securityFilterChain(ServerHttpSecurity http,
-                                                   JwtAuthenticationWebFilter jwtFilter) {
+                                                   JwtAuthenticationWebFilter jwtFilter,
+                                                   AnonCookieFilter anonFilter) {
     return http
         .csrf(ServerHttpSecurity.CsrfSpec::disable)
         .addFilterAt(jwtFilter, SecurityWebFiltersOrder.AUTHENTICATION)
-        .authorizeExchange(ex -> ex.anyExchange().authenticated())
+        .addFilterAfter(anonFilter, SecurityWebFiltersOrder.AUTHENTICATION)
+        .authorizeExchange(ex -> ex.anyExchange().permitAll())  // filters don't reject; services enforce via Principal
         .build();
 }
+```
 
-@Bean
-public JwtAuthenticationWebFilter jwtFilter(JwtTokenValidator validator) {
-    return new JwtAuthenticationWebFilter(validator);
-}
+Services then call `getPrincipal()` + `OwnershipResolver` per endpoint to decide 401/403/200.
+
+#### Required properties
+
+```yaml
+dracolich:
+  cookie:
+    secret: ${ANON_COOKIE_SECRET}   # >= 32 chars, HMAC signing key
+    lifetime: PT24H                 # ISO-8601 Duration, default PT24H
+    secure: false                   # true in prod (HTTPS only)
 ```
 
 ### Installation
@@ -410,11 +471,16 @@ forge/
 │       │   └── ValidationException.java
 │       ├── response/
 │       │   ├── DmdResponse.java
-│       │   ├── DmdResponseWrapper.java
-│       │   └── ServiceResponse.java
+│       │   └── DmdResponseWrapper.java
 │       └── security/
+│           ├── AnonCookieFilter.java
+│           ├── AnonCookieSigner.java
+│           ├── JwtAuthenticationWebFilter.java
 │           ├── JwtTokenValidator.java
-│           └── JwtAuthenticationWebFilter.java
+│           ├── OwnershipResolver.java
+│           ├── Principal.java
+│           ├── PrincipalType.java
+│           └── ReactiveSecurityContextUtil.java
 └── roller/                 # Provably-fair RNG
     └── src/main/java/dm/dracolich/forge/
         ├── Roll.java

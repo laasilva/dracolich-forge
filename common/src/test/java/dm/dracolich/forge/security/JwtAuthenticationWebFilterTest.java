@@ -91,7 +91,9 @@ class JwtAuthenticationWebFilterTest {
                 .verifyComplete();
 
         assertNotNull(capturedContext.get());
-        assertEquals("user-123", capturedContext.get().getAuthentication().getPrincipal());
+        Principal principal = (Principal) capturedContext.get().getAuthentication().getPrincipal();
+        assertEquals(PrincipalType.USER, principal.type());
+        assertEquals("user-123", principal.id());
         assertTrue(capturedContext.get().getAuthentication().getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN")));
     }
@@ -184,7 +186,9 @@ class JwtAuthenticationWebFilterTest {
                 .verifyComplete();
 
         assertNotNull(capturedContext.get());
-        assertEquals("user-456", capturedContext.get().getAuthentication().getPrincipal());
+        Principal principal = (Principal) capturedContext.get().getAuthentication().getPrincipal();
+        assertEquals(PrincipalType.USER, principal.type());
+        assertEquals("user-456", principal.id());
         assertTrue(capturedContext.get().getAuthentication().getAuthorities().isEmpty());
     }
 }
