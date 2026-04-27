@@ -348,25 +348,30 @@ public JwtAuthenticationWebFilter jwtFilter(JwtTokenValidator validator) {
 - On failure (missing/invalid/expired token): passes through silently, logs WARN. Downstream filters or `authorizeExchange(...authenticated())` enforce the 401.
 - Filter order: `10`.
 
-Example `JwtTokenValidator` with EC public key:
+For verifier-only services (everyone except `dracolich-user-api`), use the bundled `EcPublicKeyJwtValidator` — no need to write your own implementation:
 
 ```java
-@Service
-public class JwtValidatorImpl implements JwtTokenValidator {
-    private final ECPublicKey publicKey;  // loaded from PEM
-
-    @Override
-    public Mono<Claims> validate(String token) {
-        return Mono.fromCallable(() ->
-            Jwts.parser()
-                .verifyWith(publicKey)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload()
-        );
-    }
+@Bean
+public JwtTokenValidator jwtTokenValidator(@Value("${dracolich.jwt.public-key}") Resource pem) {
+    return EcPublicKeyJwtValidator.fromResource(pem);
 }
 ```
+
+Property:
+
+```yaml
+dracolich:
+  jwt:
+    public-key: classpath:keys/ec-public.pem  # dev: bundled
+    # public-key: file:/etc/dracolich/keys/ec-public.pem  # prod: mounted secret
+```
+
+Factory methods:
+- `fromResource(Resource)` — load from a Spring `Resource` (classpath or file path)
+- `fromPem(String)` — parse a PEM string directly
+- `new EcPublicKeyJwtValidator(ECPublicKey)` — pass an already-parsed key
+
+For services that **issue** tokens (just `dracolich-user-api` today), implement `JwtTokenValidator` yourself alongside the signing logic — see `user-api`'s `JwtServiceImpl` for the pattern.
 
 #### Anonymous identity (signed cookies)
 
@@ -475,6 +480,7 @@ forge/
 │       └── security/
 │           ├── AnonCookieFilter.java
 │           ├── AnonCookieSigner.java
+│           ├── EcPublicKeyJwtValidator.java
 │           ├── JwtAuthenticationWebFilter.java
 │           ├── JwtTokenValidator.java
 │           ├── OwnershipResolver.java
