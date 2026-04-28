@@ -1,14 +1,19 @@
 package dm.dracolich.forge.response;
 
 import org.springframework.core.MethodParameter;
+import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerCodecConfigurer;
 import org.springframework.stereotype.Component;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.reactive.HandlerResult;
 import org.springframework.web.reactive.accept.RequestedContentTypeResolver;
 import org.springframework.web.reactive.result.method.annotation.ResponseBodyResultHandler;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.lang.reflect.Method;
 
 /**
  * Wraps all @ResponseBody returns in a DmdResponse automatically.
@@ -53,6 +58,10 @@ public class DmdResponseWrapper extends ResponseBodyResultHandler {
 
     @Override
     public Mono<Void> handleResult(ServerWebExchange exchange, HandlerResult result) {
+        if (isStreamingProducer(result)) {
+            return super.handleResult(exchange, result);
+        }
+
         Object body = result.getReturnValue();
 
         if (body instanceof Flux<?> flux) {
@@ -68,6 +77,25 @@ public class DmdResponseWrapper extends ResponseBodyResultHandler {
         }
 
         return writeBody(wrapIfNeeded(body), DMD_RESPONSE_RETURN_TYPE, exchange);
+    }
+
+    /**
+     * Skip wrapping for endpoints that produce a streaming media type (SSE, NDJSON, etc.).
+     * The parent ResponseBodyResultHandler emits each Flux element as its own event,
+     * which DmdResponse buffering would destroy.
+     */
+    private static boolean isStreamingProducer(HandlerResult result) {
+        Method method = result.getReturnTypeSource().getMethod();
+        if (method == null) return false;
+        RequestMapping rm = AnnotatedElementUtils.findMergedAnnotation(method, RequestMapping.class);
+        if (rm == null) return false;
+        for (String produces : rm.produces()) {
+            if (produces.contains(MediaType.TEXT_EVENT_STREAM_VALUE)
+                    || produces.contains(MediaType.APPLICATION_NDJSON_VALUE)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private DmdResponse<?> wrapIfNeeded(Object body) {
