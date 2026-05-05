@@ -10,7 +10,7 @@ class ApiErrorTest {
     void constructor_withErrorCode() {
         ApiError error = new ApiError(ErrorCodes.DMD001);
 
-        assertEquals(ErrorCodes.DMD001, error.getError());
+        assertEquals(ErrorCodes.DMD001.getCode(), error.getError());
         assertNull(error.getSeverity());
         assertNull(error.getField());
     }
@@ -19,7 +19,7 @@ class ApiErrorTest {
     void constructor_withAllFields() {
         ApiError error = new ApiError(ErrorCodes.DMD003, ErrorSeverity.WARNING, "username");
 
-        assertEquals(ErrorCodes.DMD003, error.getError());
+        assertEquals(ErrorCodes.DMD003.getCode(), error.getError());
         assertEquals(ErrorSeverity.WARNING, error.getSeverity());
         assertEquals("username", error.getField());
     }

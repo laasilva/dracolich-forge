@@ -74,8 +74,8 @@ class ControllerAdviceTest {
             assertFalse(response.getBody().getSuccess());
             assertEquals("Validation failed", response.getBody().getMessage());
             assertEquals(2, response.getBody().getErrors().size());
-            assertEquals("DMD003", response.getBody().getErrors().get(0).getError().getCode());
-            assertEquals("DMD006", response.getBody().getErrors().get(1).getError().getCode());
+            assertEquals("DMD003", response.getBody().getErrors().get(0).getError());
+            assertEquals("DMD006", response.getBody().getErrors().get(1).getError());
         }
 
         @Test
@@ -103,7 +103,7 @@ class ControllerAdviceTest {
             assertFalse(response.getBody().getSuccess());
             assertEquals("An unexpected error occurred", response.getBody().getMessage());
             assertEquals(1, response.getBody().getErrors().size());
-            assertEquals("DMD001", response.getBody().getErrors().getFirst().getError().getCode());
+            assertEquals("DMD001", response.getBody().getErrors().getFirst().getError());
         }
     }
 }

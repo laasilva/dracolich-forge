@@ -152,7 +152,7 @@ class DmdResponseTest {
         response.addErrorFromErrorCode(ErrorCodes.DMD003);
 
         assertEquals(1, response.getErrors().size());
-        assertEquals("DMD003", response.getErrors().getFirst().getError().getCode());
+        assertEquals("DMD003", response.getErrors().getFirst().getError());
     }
 
     @Test
@@ -175,7 +175,7 @@ class DmdResponseTest {
 
         assertNotNull(response.getErrors());
         assertEquals(1, response.getErrors().size());
-        assertEquals("DMD002", response.getErrors().getFirst().getError().getCode());
+        assertEquals("DMD002", response.getErrors().getFirst().getError());
     }
 
     @Test
