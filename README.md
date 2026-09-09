@@ -1,6 +1,13 @@
 # Dracolich Forge
 
-**Dracolich Forge** is a Java library that provides tools and helpers for online RPG applications, with a focus on provably-fair random number generation for dice rolls, loot drops, and weighted item selection.
+**Dracolich Forge** is the shared Java library behind every Dracolich service. The `common` module
+carries the platform's cross-cutting infrastructure — response envelope, error framework, and
+identity/authorization primitives. The `roller` module provides provably-fair random number
+generation for dice rolls, loot drops, and weighted item selection; it is a legacy of forge's origin
+as a general online-RPG toolkit and is **not currently used by any MTG service**.
+
+Consumed by `dracolich-user-api`, `dracolich-mtg-library-api`, `dracolich-ai-api` and
+`dracolich-mtg-deck-builder-api`.
 
 ## Features
 
@@ -440,21 +447,31 @@ dracolich:
 
 ### Installation
 
+Published to GitHub Packages — consumers need `-s ~/.m2/settings-personal.xml` (or equivalent
+credentials) to resolve it. Pin the version in a property so it is bumped in one place:
+
 ```xml
-<!-- Response handling, error framework -->
+<properties>
+    <dracolich.forge.version>8.1.2</dracolich.forge.version>
+</properties>
+
+<!-- Response handling, error framework, security -->
 <dependency>
     <groupId>dm.dracolich.forge</groupId>
     <artifactId>common</artifactId>
-    <version>5.0.0</version>
+    <version>${dracolich.forge.version}</version>
 </dependency>
 
-<!-- Provably-fair RNG (optional) -->
+<!-- Provably-fair RNG (optional — not used by any MTG service) -->
 <dependency>
     <groupId>dm.dracolich.forge</groupId>
     <artifactId>roller</artifactId>
-    <version>5.0.0</version>
+    <version>${dracolich.forge.version}</version>
 </dependency>
 ```
+
+Note the major version moves fast: CI bumps **major** on any commit whose subject starts with
+`feature`, so 8.x reflects the number of feature commits, not breaking-change intent.
 
 ## Project Structure
 
@@ -494,3 +511,8 @@ forge/
             └── Value.java
 ```
 
+---
+
+Part of the [Dracolich](https://github.com/laasilva?tab=repositories&q=dracolich) platform. For the
+cross-repo picture — service topology, release pipeline, shared conventions — see the workspace guide
+at `~/Dev/Dracolich/CLAUDE.md`.
